@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+cache/
+.DS_Store
+Thumbs.db
+venv/
+.vscode/
+.idea/
+data/book/*
+data/paper/*
+data/video/*
+data/**/*.pdf
+data/**/*.mp4
+data/**/*.wmv
+data/**/*.avi
+data/**/*.mov

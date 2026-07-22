@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>数据集处理Demo</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=3">
+</head>
+<body>
+<header>
+  <h1>数据集处理演示系统</h1>
+  <nav>
+    <button class="tab-btn active" data-tab="overview">概览</button>
+    <button class="tab-btn" data-tab="search">文本检索</button>
+    <button class="tab-btn" data-tab="video">视频查看</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ========== 概览 ========== -->
+  <section id="tab-overview" class="tab-panel active">
+    <div class="panel-header"><h2>数据集概览</h2><button id="btn-refresh" class="btn">刷新</button></div>
+    <div id="overview-loading" class="loading">加载中...</div>
+    <div id="overview-content" style="display:none;">
+      <div class="stats-grid" id="cat-cards"></div>
+      <div id="dir-tree" class="dir-tree"></div>
+    </div>
+  </section>
+
+  <!-- ========== 文本检索 ========== -->
+  <section id="tab-search" class="tab-panel">
+    <div class="panel-header"><h2>文本检索</h2><span class="hint">混合检索：语义向量 + 关键词 ｜ 中英文 + 视频帧</span></div>
+    <div class="search-box">
+      <input type="text" id="search-input" placeholder="输入搜索词（支持中英文语义搜索，可匹配视频帧）..." />
+      <button id="btn-search" class="btn btn-primary">搜索</button>
+      <select id="search-mode" class="btn" style="padding:8px;">
+        <option value="hybrid">混合检索</option>
+        <option value="vector">语义检索</option>
+        <option value="keyword">关键词检索</option>
+      </select>
+    </div>
+    <div id="search-status"></div>
+    <div id="search-results-info" style="display:none;">
+      共 <strong id="result-total">0</strong> 条结果
+      <span id="result-mode-info"></span>
+    </div>
+    <div id="search-results" class="search-results"></div>
+    <div id="search-pagination" class="pagination"></div>
+
+    <div id="pdf-modal" class="modal" style="display:none;">
+      <div class="modal-overlay"></div>
+      <div class="modal-content">
+        <div class="modal-header"><h3 id="pdf-modal-title"></h3><button class="modal-close">&times;</button></div>
+        <div class="modal-body">
+          <div class="pdf-page-nav">
+            <button id="pdf-prev-page" class="btn btn-sm">上一页</button>
+            <span id="pdf-page-info">第 1 页</span>
+            <button id="pdf-next-page" class="btn btn-sm">下一页</button>
+          </div>
+          <pre id="pdf-page-text" class="pdf-text"></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== 视频查看 ========== -->
+  <section id="tab-video" class="tab-panel">
+    <div class="panel-header"><h2>视频抽帧查看</h2><span class="hint">选择视频后输入帧号查看画面及像素RGB</span></div>
+    <div class="video-controls">
+      <div class="control-row">
+        <label for="video-select">选择视频：</label>
+        <select id="video-select"><option value="">-- 请选择 --</option></select>
+        <button id="btn-load-video" class="btn btn-primary">加载</button>
+      </div>
+      <div id="video-info-bar" class="video-info-bar" style="display:none;">
+        <span>分辨率: <strong id="vinfo-resolution">-</strong></span>
+        <span>帧率: <strong id="vinfo-fps">-</strong> fps</span>
+        <span>总帧数: <strong id="vinfo-frames">-</strong></span>
+        <span>时长: <strong id="vinfo-duration">-</strong> s</span>
+      </div>
+      <div class="control-row frame-nav" id="frame-nav" style="display:none;">
+        <button id="btn-frame-start" class="btn btn-sm" title="第一帧">⏮</button>
+        <button id="btn-frame-prev" class="btn btn-sm" title="上一帧">◀</button>
+        <span class="frame-input-group">
+          <label for="frame-input">帧号：</label>
+          <input type="number" id="frame-input" value="0" min="0" />
+          <span id="frame-total-label">/ 0</span>
+        </span>
+        <button id="btn-frame-next" class="btn btn-sm" title="下一帧">▶</button>
+        <button id="btn-frame-end" class="btn btn-sm" title="最后一帧">⏭</button>
+        <button id="btn-jump-frame" class="btn btn-sm">跳转</button>
+      </div>
+    </div>
+
+    <div id="video-viewer" class="video-viewer" style="display:none;">
+      <div class="frame-display">
+        <div class="frame-canvas-wrapper">
+          <canvas id="frame-canvas"></canvas>
+          <div id="pixel-tooltip" class="pixel-tooltip" style="display:none;">
+            <div class="tooltip-row"><span class="color-swatch" id="tooltip-swatch"></span></div>
+            <div class="tooltip-row">X:<strong id="tooltip-x">0</strong> Y:<strong id="tooltip-y">0</strong></div>
+            <div class="tooltip-row">R:<strong id="tooltip-r">0</strong> G:<strong id="tooltip-g">0</strong> B:<strong id="tooltip-b">0</strong></div>
+            <div class="tooltip-row">HEX:<strong id="tooltip-hex">#000</strong></div>
+          </div>
+        </div>
+        <div class="frame-info">
+          <div class="info-row"><span class="info-label">当前帧：</span><span id="finfo-frame">-</span></div>
+          <div class="info-row"><span class="info-label">时间戳：</span><span id="finfo-time">-</span></div>
+          <div class="info-row"><span class="info-label">尺寸：</span><span id="finfo-size">-</span></div>
+          <div class="pixel-detail" id="pixel-detail" style="display:none;">
+            <div class="info-label">像素详情（点击画面固定）：</div>
+            <div class="pixel-values">
+              <div class="pixel-row"><span>坐标：</span><span id="pdetail-pos">-</span></div>
+              <div class="pixel-row"><span>R：</span><span id="pdetail-r">-</span></div>
+              <div class="pixel-row"><span>G：</span><span id="pdetail-g">-</span></div>
+              <div class="pixel-row"><span>B：</span><span id="pdetail-b">-</span></div>
+              <div class="pixel-row"><span>HEX：</span><span id="pdetail-hex">-</span></div>
+              <div class="pixel-swatch-row"><div class="color-swatch-large" id="pdetail-swatch"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="video-loading" class="loading" style="display:none;">提取中...</div>
+    <div id="video-error" class="error-msg" style="display:none;"></div>
+  </section>
+</main>
+
+<footer><p>数据集处理Demo &mdash; 混合检索(FAISS+关键词) ｜ 自动适配目录结构</p></footer>
+<script src="{{ url_for('static', filename='js/app.js') }}?v=3"></script>
+</body>
+</html>
